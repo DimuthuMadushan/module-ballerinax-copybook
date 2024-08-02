@@ -41,6 +41,7 @@ import io.ballerina.runtime.api.values.BString;
 import io.ballerina.runtime.api.values.BTypedesc;
 
 import java.io.IOException;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -55,6 +56,7 @@ public final class Utils {
     private static final String GROUP_ITEM_TYPE_NAME = "GroupItem";
     private static final String DATA_ITEM_TYPE_NAME = "DataItem";
     private static final String ERROR_TYPE_NAME = "Error";
+    private static final String EBCDIC_CODE_PAGE = "cp037";
 
     private Utils() {
     }
@@ -211,5 +213,15 @@ public final class Utils {
         env.getRuntime().invokeMethodAsyncConcurrently(converter, TO_RECORD_METHOD_NAME, null, null, callback, null,
                                                        PredefinedTypes.TYPE_NULL, paramFeed);
         return null;
+    }
+
+    public static Object getEbcdicBytes(BString ascii) {
+        try {
+            Charset ebcdicCharSet = Charset.forName(EBCDIC_CODE_PAGE);
+            byte[] ebcdicValue = ascii.getValue().getBytes(ebcdicCharSet);
+            return ValueCreator.createArrayValue(ebcdicValue);
+        } catch (RuntimeException e) {
+            return createError(e.getMessage());
+        }
     }
 }

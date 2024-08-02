@@ -70,6 +70,11 @@ public isolated class Converter {
         }
     }
 
+    public isolated function toBytes(record {} input, string? targetRecordName = ()) returns byte[]|Error {
+        string ascii = check self.toCopybook(input, targetRecordName);
+        return getEbcdicBytes(ascii);
+    }
+
     private isolated function validateTargetRecordName(string? targetRecordName) returns Error? {
         lock {
             if targetRecordName is () {
@@ -114,5 +119,9 @@ public isolated class Converter {
 }
 
 isolated function parseSchemaFile(string schemaFilePath) returns Schema|Error = @java:Method {
+    'class: "io.ballerina.lib.copybook.runtime.converter.Utils"
+} external;
+
+isolated function getEbcdicBytes(string ascii) returns byte[]|Error = @java:Method {
     'class: "io.ballerina.lib.copybook.runtime.converter.Utils"
 } external;
