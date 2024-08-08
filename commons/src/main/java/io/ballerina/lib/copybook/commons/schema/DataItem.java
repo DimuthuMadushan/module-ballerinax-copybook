@@ -18,6 +18,9 @@
 
 package io.ballerina.lib.copybook.commons.schema;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class DataItem implements CopybookNode {
     private final int level;
     private final String name;
@@ -28,6 +31,7 @@ public class DataItem implements CopybookNode {
     private final boolean isSinged;
     private final int floatingPointLength;
     private final String redefinedItemName;
+    private final ArrayList<String> possibleEnumValues = new ArrayList<>();
 
     public DataItem(int level, String name, String picture, boolean isNumeric, int readLength, int occurs,
                     int floatingPointLength, String redefinedItemName, GroupItem parent) {
@@ -74,6 +78,18 @@ public class DataItem implements CopybookNode {
         return this.isSinged;
     }
 
+    public boolean isEnum() {
+        return !this.possibleEnumValues.isEmpty();
+    }
+
+    public List<String> getEnumValues() {
+        return this.possibleEnumValues;
+    }
+
+    public void addEnumValues(String enumValue) {
+        this.possibleEnumValues.add(enumValue);
+    }
+
     public int getFloatingPointLength() {
         return this.floatingPointLength;
     }
@@ -100,6 +116,21 @@ public class DataItem implements CopybookNode {
         }
         if (this.redefinedItemName != null) {
             sb.append(", \"redefinedItemName\": \"").append(this.redefinedItemName).append("\"");
+        }
+        if (this.isEnum()) {
+            sb.append(", \"isEnum\": true");
+            sb.append(",  \"enumValues\":").append("[");
+            int i = 0;
+            for (String value : getEnumValues()) {
+                sb.append("\"");
+                sb.append(value);
+                sb.append("\"");
+                i++;
+                if (i != this.possibleEnumValues.size()) {
+                    sb.append(",");
+                }
+            }
+            sb.append("]");
         }
         sb.append("}");
         return sb.toString();

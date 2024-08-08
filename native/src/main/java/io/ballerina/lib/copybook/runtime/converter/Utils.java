@@ -120,6 +120,11 @@ public final class Utils {
         return dataItem.isSinged();
     }
 
+    public static boolean isEnum(BObject bObject) {
+        DataItem dataItem = (DataItem) bObject.getNativeData(NATIVE_VALUE);
+        return dataItem.isEnum();
+    }
+
     public static BString getPicture(BObject bObject) {
         DataItem dataItem = (DataItem) bObject.getNativeData(NATIVE_VALUE);
         return StringUtils.fromString(dataItem.getPicture());
@@ -175,6 +180,12 @@ public final class Utils {
             bMap.put(StringUtils.fromString(child.getName()), element);
         }
         return bMap;
+    }
+
+    public static BArray getEumValues(BObject bObject) {
+        DataItem dataItem = (DataItem) bObject.getNativeData(NATIVE_VALUE);
+        List<String> values = dataItem.getEnumValues();
+        return StringUtils.fromStringArray(values.toArray(new String[0]));
     }
 
     public static BArray getDataDescriptions(BObject bObject) {

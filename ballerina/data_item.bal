@@ -39,6 +39,10 @@ isolated distinct class DataItem {
         'class: "io.ballerina.lib.copybook.runtime.converter.Utils"
     } external;
 
+    isolated function isEnum() returns boolean = @java:Method {
+        'class: "io.ballerina.lib.copybook.runtime.converter.Utils"
+    } external;
+
     isolated function getReadLength() returns int = @java:Method {
         'class: "io.ballerina.lib.copybook.runtime.converter.Utils"
     } external;
@@ -56,6 +60,10 @@ isolated distinct class DataItem {
     } external;
 
     isolated function getRedefinedItemName() returns string? = @java:Method {
+        'class: "io.ballerina.lib.copybook.runtime.converter.Utils"
+    } external;
+
+    isolated function getEumValues() returns string[] = @java:Method {
         'class: "io.ballerina.lib.copybook.runtime.converter.Utils"
     } external;
 

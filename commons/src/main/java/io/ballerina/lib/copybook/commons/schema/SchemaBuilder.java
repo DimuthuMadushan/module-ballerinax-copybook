@@ -28,6 +28,8 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static io.ballerina.lib.copybook.commons.generated.CopybookParser.BooleanLiteralContext;
 import static io.ballerina.lib.copybook.commons.generated.CopybookParser.CicsDfhRespLiteralContext;
@@ -75,6 +77,7 @@ class SchemaBuilder implements CopybookVisitor<CopybookNode> {
     private GroupItem possibleParent;
     private final Set<String> redefinedItemNames = new HashSet<>();
     private final List<String> errors = new ArrayList<>();
+    private DataItem possibleEnum;
 
     Schema getSchema() {
         return this.schema;
@@ -124,7 +127,10 @@ class SchemaBuilder implements CopybookVisitor<CopybookNode> {
         if (ctx.dataDescriptionEntryFormat1() != null) {
             return visitDataDescriptionEntryFormat1(ctx.dataDescriptionEntryFormat1());
         }
-        // skipping level 66 and 88
+        if (ctx.dataDescriptionEntryFormat3() != null) {
+            return visitDataDescriptionEntryFormat3(ctx.dataDescriptionEntryFormat3());
+        }
+        // skipping level 66
         return null;
     }
 
@@ -152,9 +158,11 @@ class SchemaBuilder implements CopybookVisitor<CopybookNode> {
         }
         PictureStringContext pictureType = pictureClause.pictureString();
         validatePicture(pictureType);
-        return new DataItem(level, name, Utils.getPictureString(pictureType), Utils.isNumeric(pictureType),
-                            Utils.getReadLength(pictureType), occurs, Utils.getFloatingPointLength(pictureType),
-                            redefinedItemName, getParent(level));
+        DataItem dataItem = new DataItem(level, name, Utils.getPictureString(pictureType), Utils.isNumeric(pictureType),
+                Utils.getReadLength(pictureType), occurs, Utils.getFloatingPointLength(pictureType), redefinedItemName,
+                getParent(level));
+        this.possibleEnum = dataItem;
+        return dataItem;
     }
 
     private void validatePicture(PictureStringContext pictureType) {
@@ -190,6 +198,29 @@ class SchemaBuilder implements CopybookVisitor<CopybookNode> {
 
     @Override
     public CopybookNode visitDataDescriptionEntryFormat3(DataDescriptionEntryFormat3Context ctx) {
+        //  String conditionName = ctx.conditionName().getText();
+        DataValueClauseContext valueClause = ctx.dataValueClause();
+        if (valueClause.VALUE() != null) {
+            var dataValueIntervalContext = valueClause.dataValueInterval(0);
+            var literal = dataValueIntervalContext.dataValueIntervalFrom().literal();
+            if (literal != null) {
+                String literalText = literal.getText();
+                String value = literalText;
+                // remove single quotes from value ('N' -> N)
+                Matcher matcher = Pattern.compile("'(?<stringValue>.*)'").matcher(value);
+                if (matcher.find()) {
+                    value = matcher.group("stringValue");
+                }
+                if (value.length() > this.possibleEnum.getReadLength()) {
+                    String errorMsg = "Invalid enum value `" + literalText + "` found in copybook schema. "
+                            + "The value's length exceeds the defined length for enum '"
+                            + this.possibleEnum.getName() + ".";
+                    this.addError(literal.start.getLine(), literal.start.getCharPositionInLine(), errorMsg);
+                    return null;
+                }
+                this.possibleEnum.addEnumValues(value);
+            }
+        }
         return null;
     }
 

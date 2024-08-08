@@ -143,13 +143,18 @@ class JsonToCopybookConverter {
     }
 
     private isolated function handlePrimitive(PrimitiveType value, DataItem dataItem) returns string|error {
+        string primitiveValue;
         if value is string {
-            return self.handleStringValue(value, dataItem);
+            primitiveValue = check self.handleStringValue(value, dataItem);
+        } else if value is int {
+            primitiveValue = check self.handleIntValue(value, dataItem);
+        } else {
+            primitiveValue = check self.handleDecimalValue(<decimal>value, dataItem);
         }
-        if value is int {
-            return self.handleIntValue(value, dataItem);
+        if (dataItem.isEnum()) {
+            check self.validateEnumValue(primitiveValue, dataItem.getEumValues());
         }
-        return self.handleDecimalValue(<decimal>value, dataItem);
+        return primitiveValue;
     }
 
     private isolated function handleStringValue(string value, DataItem dataItem) returns string|Error {
@@ -266,6 +271,14 @@ class JsonToCopybookConverter {
             }
         }
         return;
+    }
+
+    private isolated function validateEnumValue(string value, string[] possibleEnumValues) returns error? {
+        if possibleEnumValues.indexOf(value) is int {
+            return;
+        }
+        return error Error(string `Value ${value} doesn't match any of the allowed enum values: `
+            + string `${string:'join(", ", ...possibleEnumValues)}`);
     }
 
     private isolated function getPath() returns string {
