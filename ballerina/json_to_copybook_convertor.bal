@@ -152,7 +152,7 @@ class JsonToCopybookConverter {
             primitiveValue = check self.handleDecimalValue(<decimal>value, dataItem);
         }
         if (dataItem.isEnum()) {
-            check self.validateEnumValue(primitiveValue, dataItem.getEumValues());
+            check self.validateEnumValue(primitiveValue, dataItem.getEumValues(), dataItem);
         }
         return primitiveValue;
     }
@@ -273,11 +273,23 @@ class JsonToCopybookConverter {
         return;
     }
 
-    private isolated function validateEnumValue(string value, string[] possibleEnumValues) returns error? {
-        if possibleEnumValues.indexOf(value) is int {
+    private isolated function validateEnumValue(string value, string[] possibleEnumValues, DataItem dataItem) returns error? {
+        anydata providedVal;
+        anydata[] possibleValues;
+        if dataItem.isDecimal() {
+            providedVal = check decimal:fromString(re ` `.replaceAll(value, ""));
+            possibleValues = possibleEnumValues.'map(possibleValue => check decimal:fromString(possibleValue));
+        } else if dataItem.isNumeric() {
+            providedVal = check int:fromString(re ` `.replaceAll(value, ""));
+            possibleValues = possibleEnumValues.'map(possibleValue => check int:fromString(possibleValue));
+        } else {
+            providedVal = value;
+            possibleValues = possibleEnumValues;
+        }
+        if possibleValues.indexOf(providedVal) is int {
             return;
         }
-        return error Error(string `Value ${value} doesn't match any of the allowed enum values: `
+        return error Error(string `Value ${value} of ${dataItem.getName()} doesn't match any of the allowed enum values: `
             + string `${string:'join(", ", ...possibleEnumValues)}`);
     }
 
