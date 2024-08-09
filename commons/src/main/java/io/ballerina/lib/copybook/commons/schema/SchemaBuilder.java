@@ -174,10 +174,6 @@ class SchemaBuilder implements CopybookVisitor<CopybookNode> {
         this.addError(pictureType.start.getLine(), pictureType.start.getCharPositionInLine(), errorMsg);
     }
 
-    private void addError(int line, int charPositionInLine, String msg) {
-        this.errors.add("Error at line " + line + ", column " + charPositionInLine + ": " + msg);
-    }
-
     @Override
     public CopybookNode visitDataDescriptionEntryClauses(DataDescriptionEntryClausesContext ctx) {
         return null;
@@ -198,21 +194,16 @@ class SchemaBuilder implements CopybookVisitor<CopybookNode> {
 
     @Override
     public CopybookNode visitDataDescriptionEntryFormat3(DataDescriptionEntryFormat3Context ctx) {
-        //  String conditionName = ctx.conditionName().getText();
         DataValueClauseContext valueClause = ctx.dataValueClause();
         if (valueClause.VALUE() != null) {
             var dataValueIntervalContext = valueClause.dataValueInterval(0);
             var literal = dataValueIntervalContext.dataValueIntervalFrom().literal();
             if (literal != null) {
-                String literalText = literal.getText();
-                String value = literalText;
                 // remove single quotes from value ('N' -> N)
-                Matcher matcher = Pattern.compile("'(?<stringValue>.*)'").matcher(value);
-                if (matcher.find()) {
-                    value = matcher.group("stringValue");
-                }
+                Matcher matcher = Pattern.compile("'(?<stringValue>.*)'").matcher(literal.getText());
+                String value =  matcher.find() ? matcher.group("stringValue") : literal.getText();
                 if (value.length() > this.possibleEnum.getReadLength()) {
-                    String errorMsg = "Invalid enum value `" + literalText + "` found in copybook schema. "
+                    String errorMsg = "Invalid enum value '" + value + "' found in copybook schema. "
                             + "The value's length exceeds the defined length for enum '"
                             + this.possibleEnum.getName() + ".";
                     this.addError(literal.start.getLine(), literal.start.getCharPositionInLine(), errorMsg);
@@ -222,6 +213,10 @@ class SchemaBuilder implements CopybookVisitor<CopybookNode> {
             }
         }
         return null;
+    }
+
+    private void addError(int line, int charPositionInLine, String msg) {
+        this.errors.add("Error at line " + line + ", column " + charPositionInLine + ": " + msg);
     }
 
     @Override

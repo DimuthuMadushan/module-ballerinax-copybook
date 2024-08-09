@@ -132,3 +132,27 @@ isolated function testDecimalWithoutFraction() returns error? {
     string expectedAscii = check io:fileReadString(getAsciiFilePath("copybook-10"));
     test:assertEquals(copybook, expectedAscii);
 }
+
+@test:Config
+isolated function testEnumValidation() returns error? {
+    Converter converter = check new (getCopybookPath("copybook-11"));
+    json jsonInput = check io:fileReadJson(getCopybookJsonPath("valid-copybook-11"));
+    string validCopybook = check converter.toCopybook(check jsonInput.cloneWithType());
+    test:assertEquals(validCopybook, check io:fileReadString(getAsciiFilePath("valid-copybook-11")));
+
+    jsonInput = check io:fileReadJson(getCopybookJsonPath("invalid-copybook-11"));
+    Error|string invalidCopybook = converter.toCopybook(check jsonInput.cloneWithType());
+    if invalidCopybook !is Error {
+        test:assertFail("Expected a 'copybook:Error' but found a 'string'");
+    }
+    test:assertEquals(invalidCopybook.detail(), check getErrorDetail("copybook-11"));
+}
+
+@test:Config
+isolated function testInvalidEnumSchema() returns error? {
+    Converter|Error converter = new (getCopybookPath("copybook-12"));
+    if converter !is Error {
+        test:assertFail("Expected a 'copybook:Error' but found a 'string'");
+    }
+    test:assertEquals(converter.detail(), check getErrorDetail("copybook-12"));
+}

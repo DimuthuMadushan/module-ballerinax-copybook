@@ -289,8 +289,8 @@ class JsonToCopybookConverter {
         if possibleValues.indexOf(providedVal) is int {
             return;
         }
-        return error Error(string `Value ${value} of ${dataItem.getName()} doesn't match any of the allowed enum values: `
-            + string `${string:'join(", ", ...possibleEnumValues)}`);
+        return error Error(string `Value '${value}' is invalid for field '${dataItem.getName()}'. `
+            + string `Allowed values are: ${string:'join(", ", ...possibleEnumValues)}.`);
     }
 
     private isolated function getPath() returns string {
