@@ -39,6 +39,9 @@ class JsonToCopybookConverter {
         }
         if data.hasKey(typedef.getName()) {
             typedef.accept(self, data.get(typedef.getName()));
+        } else {
+            string defaultNodeValue = self.getDefaultValue(typedef);
+            self.value.push(defaultNodeValue);
         }
         _ = self.path.pop();
     }
