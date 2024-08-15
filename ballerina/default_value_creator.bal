@@ -40,11 +40,13 @@ class DefaultValueCreator {
         if dataItem.getRedefinedItemName() is string {
             return;
         }
+        // TODO: verify the dataItem.getDefaultValue() impl for numeric and decimal value
+        string defaultValues = dataItem.getDefaulValue() ?: "";
         string dataItemDefaultValue;
         if dataItem.isNumeric() && !dataItem.isDecimal() {
-            dataItemDefaultValue = "".padZero(dataItem.getReadLength());
+            dataItemDefaultValue = defaultValues.padZero(dataItem.getReadLength());
         } else {
-            dataItemDefaultValue = "".padEnd(dataItem.getReadLength());
+            dataItemDefaultValue = defaultValues.padEnd(dataItem.getReadLength());
         }
         int elementCount = dataItem.getElementCount();
         self.defaultValues.push(self.generateRepeatedString(dataItemDefaultValue, elementCount));

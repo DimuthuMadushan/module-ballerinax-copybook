@@ -78,6 +78,7 @@ class SchemaBuilder implements CopybookVisitor<CopybookNode> {
     private final Set<String> redefinedItemNames = new HashSet<>();
     private final List<String> errors = new ArrayList<>();
     private DataItem possibleEnum;
+    private int rootLevel = -1;
 
     Schema getSchema() {
         return this.schema;
@@ -108,6 +109,7 @@ class SchemaBuilder implements CopybookVisitor<CopybookNode> {
     public CopybookNode visitDataDescription(DataDescriptionContext ctx) {
         for (int i = 0; i < ctx.getChildCount(); i++) {
             CopybookNode copybookNode = visitDataDescriptionEntry(ctx.dataDescriptionEntry(i));
+            setRootLevel(copybookNode);
             if (copybookNode instanceof GroupItem groupItem) {
                 this.possibleParent = groupItem;
             }
@@ -118,8 +120,14 @@ class SchemaBuilder implements CopybookVisitor<CopybookNode> {
         return null;
     }
 
+    private void setRootLevel(CopybookNode copybookNode) {
+        if (copybookNode != null && (this.rootLevel == -1 || this.rootLevel > copybookNode.getLevel())) {
+            this.rootLevel = copybookNode.getLevel();
+        }
+    }
+
     private boolean isRootLevelNode(CopybookNode copybookNode) {
-        return copybookNode != null && copybookNode.getLevel() == 1;
+        return copybookNode != null && copybookNode.getLevel() == this.rootLevel;
     }
 
     @Override
@@ -156,11 +164,17 @@ class SchemaBuilder implements CopybookVisitor<CopybookNode> {
         if (pictureClause == null || pictureClause.pictureString() == null) {
             return new GroupItem(level, name, occurs, redefinedItemName, getParent(level));
         }
+
+
         PictureStringContext pictureType = pictureClause.pictureString();
+        int readLength = Utils.getReadLength(pictureType);
+        var valueClause = ctx.dataDescriptionEntryClauses().dataValueClause(0);
+        String defaultValue = getDataValue(valueClause, readLength);
+
         validatePicture(pictureType);
         DataItem dataItem = new DataItem(level, name, Utils.getPictureString(pictureType), Utils.isNumeric(pictureType),
-                Utils.getReadLength(pictureType), occurs, Utils.getFloatingPointLength(pictureType), redefinedItemName,
-                getParent(level));
+                readLength, occurs, Utils.getFloatingPointLength(pictureType), redefinedItemName,
+                defaultValue, getParent(level));
         this.possibleEnum = dataItem;
         return dataItem;
     }
@@ -296,6 +310,72 @@ class SchemaBuilder implements CopybookVisitor<CopybookNode> {
 
     @Override
     public CopybookNode visitDataUsageClause(DataUsageClauseContext ctx) {
+        return null;
+    }
+
+
+    private String getDataValue(DataValueClauseContext ctx, int readLength) {
+        if (ctx == null) {
+            return null;
+        }
+        if (ctx.VALUES() != null) {
+            // add error not supported
+            return null;
+        }
+        var interval = ctx.dataValueInterval(0);
+
+        if (interval.dataValueIntervalTo() != null) {
+            // add range not supported error
+            return null;
+        }
+        if (interval.dataValueIntervalFrom().cobolWord() != null) {
+            // return error saying cobolWord not supported
+            return null;
+        }
+        var literal = interval.dataValueIntervalFrom().literal();
+        var figurativeConstants = literal.figurativeConstant();
+        if (figurativeConstants != null) {
+            if (figurativeConstants.SPACE() != null) {
+                return " ";
+            }
+            if (literal.figurativeConstant().SPACES() != null) {
+                return " ".repeat(readLength);
+            }
+            if (literal.figurativeConstant().ZERO() != null) {
+                return "0";
+            }
+            if (literal.figurativeConstant().ZEROES() != null) {
+                return "0".repeat(readLength);
+            }
+            // others not supported
+            return null;
+        }
+        var nonNumericLiteral = literal.NONNUMERICLITERAL();
+        if (nonNumericLiteral != null) {
+            String defaultValue = nonNumericLiteral.getText();
+            if (Pattern.matches("^[xX].*", defaultValue)) {
+                // not supported   HEXNUMBER
+                return null;
+            }
+            if (Pattern.matches("^[zZ].*", defaultValue)) {
+                // not suported NULLTERMINATED
+                return null;
+            }
+
+            Matcher matcher = Pattern.compile("'(?<stringValue>.*)'").matcher(defaultValue);
+            return matcher.find() ? matcher.group("stringValue") : defaultValue;
+        }
+        var numericLiteral = literal.numericLiteral();
+        if (numericLiteral != null) {
+            if (numericLiteral.NUMERICLITERAL() != null) {
+                // NUMERICLITERAL not supported
+                return  null;
+            }
+            if (numericLiteral.ZERO() != null) {
+                return "0";
+            }
+            return numericLiteral.getText();
+        }
         return null;
     }
 
