@@ -40,6 +40,7 @@ class JsonToCopybookConverter {
         if data.hasKey(typedef.getName()) {
             typedef.accept(self, data.get(typedef.getName()));
         } else {
+            // TODO: add test
             string defaultNodeValue = self.getDefaultValue(typedef);
             self.value.push(defaultNodeValue);
         }
@@ -292,8 +293,10 @@ class JsonToCopybookConverter {
         if possibleValues.indexOf(providedVal) is int {
             return;
         }
+        // Surround by single quote to display error message
+        string[] singleQuotedValues = possibleEnumValues.'map(posibleValue => string`'${posibleValue.toString()}'`);
         return error Error(string `Value '${value}' is invalid for field '${dataItem.getName()}'. `
-            + string `Allowed values are: ${string:'join(", ", ...possibleEnumValues)}.`);
+            + string `Allowed values are: ${string:'join(", ", ...singleQuotedValues)}.`);
     }
 
     private isolated function getPath() returns string {

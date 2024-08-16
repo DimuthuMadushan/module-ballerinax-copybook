@@ -136,13 +136,22 @@ public final class Utils {
     }
 
     public static int getElementCount(BObject bObject) {
-        CopybookNode nod = (CopybookNode) bObject.getNativeData(NATIVE_VALUE);
-        return nod.getOccurringCount();
+        CopybookNode node = (CopybookNode) bObject.getNativeData(NATIVE_VALUE);
+        return node.getOccurringCount();
     }
 
     public static BString externToString(BObject bObject) {
         Object nativeData = bObject.getNativeData(NATIVE_VALUE);
         return StringUtils.fromString(nativeData.toString());
+    }
+
+    public static Object getDefaulValue(BObject bObject) {
+        DataItem dataItem = (DataItem) bObject.getNativeData(NATIVE_VALUE);
+        String defaultValue = dataItem.getDefaultValue();
+        if (defaultValue == null) {
+            return defaultValue;
+        }
+        return StringUtils.fromString(defaultValue);
     }
 
     public static int getFloatingPointLength(BObject bObject) {
