@@ -33,9 +33,11 @@ public class DataItem implements CopybookNode {
     private final String redefinedItemName;
     private final ArrayList<String> possibleEnumValues = new ArrayList<>();
     private final String defaultValue;
+    private final boolean isBinary;
 
     public DataItem(int level, String name, String picture, boolean isNumeric, int readLength, int occurs,
-                    int floatingPointLength, String redefinedItemName, String defaultValue, GroupItem parent) {
+                    int floatingPointLength, String redefinedItemName, String defaultValue, GroupItem parent,
+                    boolean isBinary) {
         this.level = level;
         this.name = name;
         this.picture = picture;
@@ -46,6 +48,7 @@ public class DataItem implements CopybookNode {
         this.floatingPointLength = floatingPointLength;
         this.redefinedItemName = redefinedItemName;
         this.defaultValue = defaultValue;
+        this.isBinary = isBinary;
         if (parent != null) {
             parent.addChild(this);
         }
@@ -102,6 +105,10 @@ public class DataItem implements CopybookNode {
 
     public String getDefaultValue() {
         return defaultValue;
+    }
+
+    public boolean isBinary() {
+        return isBinary;
     }
 
     @Override

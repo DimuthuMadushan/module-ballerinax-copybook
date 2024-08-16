@@ -18,10 +18,11 @@
 
 package io.ballerina.lib.copybook.commons.schema;
 
-import java.util.regex.Pattern;
+import io.ballerina.lib.copybook.commons.generated.CopybookParser.DataOccursClauseContext;
+import io.ballerina.lib.copybook.commons.generated.CopybookParser.DataUsageClauseContext;
+import io.ballerina.lib.copybook.commons.generated.CopybookParser.PictureStringContext;
 
-import static io.ballerina.lib.copybook.commons.generated.CopybookParser.DataOccursClauseContext;
-import static io.ballerina.lib.copybook.commons.generated.CopybookParser.PictureStringContext;
+import java.util.regex.Pattern;
 
 public final class Utils {
 
@@ -62,5 +63,9 @@ public final class Utils {
 
     static String getPictureString(PictureStringContext pictureType) {
         return pictureType.getText().toUpperCase();
+    }
+
+    static boolean isBinary(DataUsageClauseContext usageClause) {
+        return usageClause != null && (usageClause.BINARY() != null || usageClause.COMP() != null);
     }
 }
