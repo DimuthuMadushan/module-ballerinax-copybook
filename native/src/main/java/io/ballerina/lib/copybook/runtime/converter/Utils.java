@@ -244,4 +244,9 @@ public final class Utils {
             return createError(e.getMessage());
         }
     }
+
+    public static boolean isBinary(BObject bObject) {
+        DataItem dataItem = (DataItem) bObject.getNativeData(NATIVE_VALUE);
+        return dataItem.isBinary();
+    }
 }

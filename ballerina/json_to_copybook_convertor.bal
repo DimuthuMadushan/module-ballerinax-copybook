@@ -195,6 +195,14 @@ class JsonToCopybookConverter {
                 : "+" + value.toString().padZero(maxByteSize - 1).padStart(maxByteSize - 1);
         }
         // handle S9(9)
+        if dataItem.isBinary() {
+            if dataItem.isSigned() && value < 0 {
+                byte[] encodedValue = check getEncodedBinaryValue(value, getPackLength(maxByteSize));
+                return value.toString().padZero(maxByteSize + 1); // +1 for sign byte
+            }
+            byte[] encodedValue = check getEncodedBinaryValue(value, getPackLength(maxByteSize));
+            return value.toString().padZero(maxByteSize);
+        }
         if dataItem.isSigned() && value < 0 {
             return value.toString().padZero(maxByteSize + 1); // +1 for sign byte
         }

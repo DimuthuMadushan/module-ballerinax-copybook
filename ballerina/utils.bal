@@ -205,3 +205,98 @@ isolated function createError(error err) returns Error {
     }
     return error Error(err.message(), err);
 }
+
+isolated function getPackLength(int length) returns int {
+    if length <= 4 {
+        lock {
+            return binaryPackLengths.get("4");
+        }
+    }
+    if length <= 9 {
+        lock {
+            return binaryPackLengths.get("9");
+        }
+    }
+    lock {
+        return binaryPackLengths.get("18");
+    }
+}
+
+isolated function getEncodedBinaryValue(int value, int length) returns byte[]|error {
+    if value < 0 {
+        return encodeNegativeValue(value, length);
+    }
+    return encodeBinaryValue(value, length);
+}
+
+isolated function encodeNegativeValue(int value, int length) returns byte[]|error {
+    string binaryString = decimalToBinary(value);
+    binaryString = check findTwosComplement(binaryString.padZero(32));
+    int complementValue = binaryToDecimal(binaryString);
+    return encodeBinaryValue(complementValue, length);
+}
+
+isolated function encodeBinaryValue(int value, int length) returns byte[]|error {
+    string hex = int:toHexString(value);
+    string[] doubles = splitAs2Chars(hex.padZero(getPackLength(length)*2));
+    int[] bytes = doubles.reverse().'map(r => check int:fromHexString(r));
+    return bytes.cloneWithType();
+}
+
+isolated function splitAs2Chars(string hex) returns string[] {
+    string[] doubles = [];
+    int i = 0;
+    while i < hex.length() {
+        string d = hex.substring(i, i+2);
+        doubles.push(d);
+        i+=2;
+    }
+    return doubles;
+}
+
+
+isolated function decimalToBinary(int decimalValue) returns string {
+    string binary = "";
+    int val = decimalValue;
+    int i = 0;
+    while val > 0 {
+        binary = (val % 2).toString() + binary;
+        val = val / 2;
+        i+=1;
+    }
+    return binary;
+}
+
+isolated function binaryToDecimal(string binary) returns int {
+    int decimalValue = 0;
+    int length = binary.length();
+    foreach int i in 0 ..< length {
+        if binary[length - i - 1] == "1" {
+            decimalValue += 1 << i;
+        }
+    }
+    return decimalValue;
+}
+
+isolated function findTwosComplement(string binary) returns string|error {
+    string onesComplement = "";
+    foreach string:Char char in binary {
+        onesComplement += (char == "0" ? "1" : "0");
+    }
+    int[] twosComplement = onesComplement.toCodePointInts();
+    int codePointInt0 = string:toCodePointInt("0");
+    int codePointInt1 = string:toCodePointInt("1");
+    boolean carry = true;
+    foreach int i in int:range(onesComplement.length()-1, 0, -1) {
+        if twosComplement[i] == codePointInt1 && carry {
+            twosComplement[i] = codePointInt0;
+        } else if carry {
+            twosComplement[i] = codePointInt1;
+            carry = false;
+        }
+    }
+    if carry {
+        twosComplement.unshift(codePointInt1);
+    }
+    return check string:fromCodePointInts(twosComplement);
+}
