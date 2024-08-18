@@ -68,4 +68,13 @@ public final class Utils {
     static boolean isBinary(DataUsageClauseContext usageClause) {
         return usageClause != null && (usageClause.BINARY() != null || usageClause.COMP() != null);
     }
+
+    static int getBinaryPackedLength(int length) {
+        if (length < 4) {
+            return 2;
+        } else if (length < 9) {
+            return 4;
+        }
+        return 18;
+    }
 }

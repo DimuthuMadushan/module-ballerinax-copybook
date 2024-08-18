@@ -51,7 +51,7 @@ class CopybookReader {
         } else {
             GroupValue groupValue = {};
             foreach var child in groupItem.getChildren() {
-                child.accept(self, groupValue); 
+                child.accept(self, groupValue);
             }
             self.addValue(groupItem.getName(), groupValue, data);
         }
@@ -94,22 +94,41 @@ class CopybookReader {
 
     private isolated function read(DataItem dataItem) returns string {
         string:Char[] chars = [];
+        byte[] bytes = [];
         foreach int i in 0 ..< dataItem.getReadLength() {
             var data = self.copybookIterator.next();
             if data is () {
                 break;
             }
-            chars.push(data.value);
-        }
-        string token = "".'join(...chars);
-        // Handle optional sign in PIC S9
-        if dataItem.isSigned() && re `^(\+|-).*$`.find(token.trim()) !is () {
-            var additionalChar = self.copybookIterator.next();
-            if additionalChar !is () {
-                chars.push(additionalChar.value);
+            string:Char|byte value = data.value;
+            if value is byte {
+                bytes.push(value);
+            } else {
+                chars.push(value);
             }
         }
-        return "".'join(...chars);
+        string token = "";
+        if chars.length() == 0 && bytes.length() == 0 {
+            return "";
+        } else if chars.length() > 0 {
+            token = token.'join(...chars);
+            // Handle optional sign in PIC S9
+            if dataItem.isSigned() && re `^(\+|-).*$`.find(token.trim()) !is () {
+                var additionalChar = self.copybookIterator.next();
+                if additionalChar !is () && additionalChar.value is string:Char {
+                    chars.push(<string:Char>additionalChar.value);
+                }
+            }
+            return "".'join(...chars);
+        }
+        if dataItem.isBinary() {
+            int intValue = checkpanic decodeBinaryValue(bytes, dataItem.getReadLength(), true);//check whether there is a way to find the value is negative or postive
+            token = token.'join(intValue.toString());
+        } else {
+            token = token.'join(checkpanic string:fromBytes(bytes));
+        }
+        //handle sign
+        return token;
     }
 
     private isolated function addValue(string fieldName, FieldValue fieldValue, anydata parent) {

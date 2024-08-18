@@ -243,6 +243,19 @@ isolated function encodeBinaryValue(int value, int length) returns byte[]|error 
     return bytes.cloneWithType();
 }
 
+isolated function decodeBinaryValue(int[] bytes, int paddLength, boolean isNegative) returns int|error {
+    string[] binaryValues = bytes.reverse().'map(r => decimalToBinary(r));
+    string value = "";
+    foreach string name in binaryValues {
+        value += name;
+    }
+    if isNegative {
+        value = check findTwosComplement(value);
+        return -binaryToDecimal(value);
+    }
+    return binaryToDecimal(value);
+}
+
 isolated function splitAs2Chars(string hex) returns string[] {
     string[] doubles = [];
     int i = 0;

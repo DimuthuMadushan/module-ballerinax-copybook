@@ -42,7 +42,7 @@ public class DataItem implements CopybookNode {
         this.name = name;
         this.picture = picture;
         this.isNumeric = isNumeric;
-        this.readLength = readLength;
+        this.readLength = isBinary ? Utils.getBinaryPackedLength(readLength) : readLength;
         this.occurs = occurs;
         this.isSinged = Utils.isSigned(picture);
         this.floatingPointLength = floatingPointLength;

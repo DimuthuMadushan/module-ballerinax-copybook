@@ -18,7 +18,7 @@
 public type Error distinct error;
 
 type Iterator object {
-    public isolated function next() returns record {|string:Char value;|}?;
+    public isolated function next() returns record {|string:Char value;|}|record {|byte value;|}?;
 };
 
 type GroupValue record {
