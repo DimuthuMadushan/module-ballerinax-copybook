@@ -17,7 +17,7 @@
 class JsonToCopybookConverter {
     *Visitor;
 
-    private final string[] value = [];
+    private final byte[] value = [];
     private final Error[] errors = [];
     private final string[] path = [];
     private final map<Node> redefinedItems;
@@ -42,7 +42,7 @@ class JsonToCopybookConverter {
         } else {
             // TODO: add test
             string defaultNodeValue = self.getDefaultValue(typedef);
-            self.value.push(defaultNodeValue);
+            self.value.push(...defaultNodeValue.toBytes());
         }
         _ = self.path.pop();
     }
@@ -67,7 +67,7 @@ class JsonToCopybookConverter {
             int elementSize = computeSize(groupItem, false);
             int remainingElements = (groupItem.getElementCount() - data.length());
             int paddLength = remainingElements * elementSize;
-            self.value.push("".padEnd(paddLength));
+            self.value.push(..."".padEnd(paddLength).toBytes());
         } else {
             self.errors.push(error Error(string `Found an invalid value '${data is () ? "null" : data.toString()}'`
                 + string `at ${self.getPath()}. A '${groupItem.getElementCount() < 0 ? "map<json>" : "map<json>[]"}'`
@@ -86,7 +86,7 @@ class JsonToCopybookConverter {
         if !value.hasKey(child.getName()) {
             redefiningItemNameWithValue = self.findRedefiningItemNameWithValue(value, redefiningItems);
             if redefiningItemNameWithValue is () {
-                self.value.push(self.getDefaultValue(child));
+                self.value.push(...self.getDefaultValue(child).toBytes());
                 return;
             }
             self.visitAllowedRedefiningItems[redefiningItemNameWithValue] = ();
@@ -137,7 +137,7 @@ class JsonToCopybookConverter {
                     string `A ${dataItem.getElementCount() < 0 ? "primitive" : "array"} value is expected`);
                 return;
             }
-            self.value.push(primitiveValue);
+            self.value.push(...primitiveValue.toBytes());
         } on fail error e {
             if e is Error {
                 self.errors.push(e);
@@ -311,11 +311,20 @@ class JsonToCopybookConverter {
         return string `'${".".'join(...self.path)}'`;
     }
 
-    isolated function getValue() returns string|Error {
+    isolated function getStringValue() returns string|Error {
+        string|error stringValue = string:fromBytes(self.value);
+        if self.errors.length() > 0 || stringValue is error {
+            string[] errorMsgs = self.errors.'map(err => err.message());
+            return error Error("JSON to copybook data conversion failed.", errors = errorMsgs);
+        }
+        return stringValue;
+    }
+
+    isolated function getByteValue() returns byte[]|Error {
         if self.errors.length() > 0 {
             string[] errorMsgs = self.errors.'map(err => err.message());
             return error Error("JSON to copybook data conversion failed.", errors = errorMsgs);
         }
-        return "".'join(...self.value);
+        return self.value;
     }
 }

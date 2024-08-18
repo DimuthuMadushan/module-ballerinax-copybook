@@ -63,7 +63,27 @@ public isolated class Converter {
                 check self.validateTargetRecordName(targetRecordName);
                 JsonToCopybookConverter converter = new (self.schema, targetRecordName);
                 converter.visitSchema(self.schema, readonlyJson);
-                return converter.getValue();
+                return converter.getStringValue();
+            }
+        } on fail error err {
+            return createError(err);
+        }
+    }
+
+    # Converts the provided record or map<json> value to bytes array.
+    # + input - The JSON value that needs to be converted as copybook data
+    # + targetRecordName - The name of the copybook record definition in the copybook. This parameter must be a string
+    # if the provided schema file contains more than one copybook record type definition
+    # + return - The converted ASCII string. In case of an error, a `copybook:Error` is is returned
+    public isolated function toBytes2(record {} input, string? targetRecordName = ()) returns byte[]|Error {
+        do {
+            readonly & map<json> readonlyJson = check input.cloneWithType();
+            lock {
+                check self.validateTargetRecordName(targetRecordName);
+                JsonToCopybookConverter converter = new (self.schema, targetRecordName);
+                converter.visitSchema(self.schema, readonlyJson);
+                byte[] bytes = check converter.getByteValue();
+                return bytes.cloneReadOnly();
             }
         } on fail error err {
             return createError(err);
