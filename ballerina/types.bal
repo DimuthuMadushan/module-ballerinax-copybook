@@ -18,7 +18,25 @@
 public type Error distinct error;
 
 type Iterator object {
-    public isolated function next() returns record {|string:Char value;|}|record {|byte value;|}?;
+    public isolated function next() returns record {|string:Char value;|}?;
+};
+
+// Addedd this is due to lang bug
+isolated class ByteIterator {
+
+    private final object {
+        public isolated function next() returns record {|byte value;|}?;
+    } iterator;
+
+    isolated function init(byte[] bytes) {
+        self.iterator = bytes.cloneReadOnly().iterator();
+    }
+
+    isolated function next() returns record {|byte value;|}? {
+        lock {
+            return self.iterator.next().cloneReadOnly();
+        }
+    }
 };
 
 type GroupValue record {
@@ -34,3 +52,8 @@ type PrimitiveArrayType string[]|int[]|float[]|decimal[];
 const ROOT_JSON_PATH = "$";
 const ERRORS = "errors";
 const DATA = "data";
+
+public enum Encoding {
+    ASCII,
+    EBCDIC
+}

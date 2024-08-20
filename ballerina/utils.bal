@@ -208,18 +208,11 @@ isolated function createError(error err) returns Error {
 
 isolated function getPackLength(int length) returns int {
     if length <= 4 {
-        lock {
-            return binaryPackLengths.get("4");
-        }
+        return 2;
+    } else if length <= 9 {
+        return 4;
     }
-    if length <= 9 {
-        lock {
-            return binaryPackLengths.get("9");
-        }
-    }
-    lock {
-        return binaryPackLengths.get("18");
-    }
+    return 18;
 }
 
 isolated function getEncodedBinaryValue(int value, int length) returns byte[]|error {
@@ -230,26 +223,26 @@ isolated function getEncodedBinaryValue(int value, int length) returns byte[]|er
 }
 
 isolated function encodeNegativeValue(int value, int length) returns byte[]|error {
-    string binaryString = decimalToBinary(value);
+    string binaryString = decimalToBinary(value.abs());
     binaryString = check findTwosComplement(binaryString.padZero(32));
     int complementValue = binaryToDecimal(binaryString);
     return encodeBinaryValue(complementValue, length);
 }
 
 isolated function encodeBinaryValue(int value, int length) returns byte[]|error {
-    string hex = int:toHexString(value);
-    string[] doubles = splitAs2Chars(hex.padZero(getPackLength(length)*2));
+    string hex = int:toHexString(value).padZero(length*2);
+    string[] doubles = splitAs2Chars(hex);
     int[] bytes = doubles.reverse().'map(r => check int:fromHexString(r));
     return bytes.cloneWithType();
 }
 
-isolated function decodeBinaryValue(int[] bytes, int paddLength, boolean isNegative) returns int|error {
-    string[] binaryValues = bytes.reverse().'map(r => decimalToBinary(r));
+isolated function decodeBinaryValue(int[] bytes) returns int|error {
+    string[] binaryValues = bytes.reverse().'map(r => decimalToBinary(r).padStart(8, "0"));
     string value = "";
     foreach string name in binaryValues {
         value += name;
     }
-    if isNegative {
+    if value.startsWith("1") {
         value = check findTwosComplement(value);
         return -binaryToDecimal(value);
     }
@@ -269,6 +262,9 @@ isolated function splitAs2Chars(string hex) returns string[] {
 
 
 isolated function decimalToBinary(int decimalValue) returns string {
+    if decimalValue == 0 {
+        return "0";
+    }
     string binary = "";
     int val = decimalValue;
     int i = 0;

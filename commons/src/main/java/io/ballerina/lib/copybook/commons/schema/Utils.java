@@ -70,9 +70,9 @@ public final class Utils {
     }
 
     static int getBinaryPackedLength(int length) {
-        if (length < 4) {
+        if (length <= 4) {
             return 2;
-        } else if (length < 9) {
+        } else if (length <= 9) {
             return 4;
         }
         return 18;

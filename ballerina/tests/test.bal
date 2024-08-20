@@ -111,6 +111,21 @@ isolated function testToCopybookWithoutRedefinedItems() returns error? {
     test:assertEquals(asciiData, expectedAscii);
 }
 
+@test:Config {
+    enable: false
+
+}
+isolated function testToCopybookWithoutRedefinedItems2() returns error? {
+    Converter converter = check new (getCopybookPath("copybook-13"));
+    json jsonInput = check io:fileReadJson(getCopybookJsonPath("copybook-13"));
+    byte[] asciiData = check converter.toBytes(check jsonInput.cloneWithType(), "MQCIH");
+    _ = check io:fileWriteString(getAsciiFilePath("copybook-140"), asciiData.toBase64());
+    map<json> jsonData = check converter.fromBytes(asciiData, "MQCIH");
+    _ = check io:fileWriteJson(getCopybookJsonPath("copybook-134"), jsonData.toJson());
+    byte[] expectedAscii = check converter.toBytes(jsonData, "MQCIH");
+    test:assertEquals(asciiData, expectedAscii);
+}
+
 @test:Config
 isolated function testToCopybookReturningError() returns error? {
     Converter converter = check new (getCopybookPath("copybook-9"));

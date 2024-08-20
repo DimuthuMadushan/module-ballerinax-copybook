@@ -137,7 +137,9 @@ class JsonToCopybookConverter {
                     string `A ${dataItem.getElementCount() < 0 ? "primitive" : "array"} value is expected`);
                 return;
             }
-            self.value.push(...primitiveValue.toBytes());
+            if primitiveValue != "" {
+                self.value.push(...primitiveValue.toBytes());
+            }
         } on fail error e {
             if e is Error {
                 self.errors.push(e);
@@ -196,12 +198,9 @@ class JsonToCopybookConverter {
         }
         // handle S9(9)
         if dataItem.isBinary() {
-            if dataItem.isSigned() && value < 0 {
-                byte[] encodedValue = check getEncodedBinaryValue(value, getPackLength(maxByteSize));
-                return value.toString().padZero(maxByteSize + 1); // +1 for sign byte
-            }
-            byte[] encodedValue = check getEncodedBinaryValue(value, getPackLength(maxByteSize));
-            return value.toString().padZero(maxByteSize);
+            byte[] encodedValue = check getEncodedBinaryValue(value, maxByteSize);
+            self.value.push(...encodedValue);
+            return "";
         }
         if dataItem.isSigned() && value < 0 {
             return value.toString().padZero(maxByteSize + 1); // +1 for sign byte
