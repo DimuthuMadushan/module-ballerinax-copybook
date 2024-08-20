@@ -1,6 +1,5 @@
 {
-    "parser-errors": [
-        "Error at line 2, column 40: Invalid enum value 'YES' found in copybook schema. The value's length exceeds the defined length for enum 'REQUIRED.",
-        "Error at line 3, column 40: Invalid enum value 'NO' found in copybook schema. The value's length exceeds the defined length for enum 'REQUIRED."
+    "errors": [
+        "Value '2' is invalid for field 'REQUIRED'. Allowed values are: '1', '0'."
     ]
 }

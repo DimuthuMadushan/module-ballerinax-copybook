@@ -192,6 +192,15 @@ public final class Utils {
         return bMap;
     }
 
+    public static Object getPossibleEnumValues(BObject bObject) {
+        DataItem dataItem = (DataItem) bObject.getNativeData(NATIVE_VALUE);
+        if (dataItem.isEnum()) {
+            List<String> values = dataItem.getPossibleEnumValues();
+            return StringUtils.fromStringArray(values.toArray(new String[0]));
+        }
+        return null;
+    }
+
     public static BArray getEumValues(BObject bObject) {
         DataItem dataItem = (DataItem) bObject.getNativeData(NATIVE_VALUE);
         List<String> values = dataItem.getEnumValues();

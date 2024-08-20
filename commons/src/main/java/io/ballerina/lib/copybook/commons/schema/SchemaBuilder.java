@@ -19,6 +19,8 @@
 package io.ballerina.lib.copybook.commons.schema;
 
 import io.ballerina.lib.copybook.commons.generated.CopybookVisitor;
+import org.antlr.v4.runtime.ParserRuleContext;
+import org.antlr.v4.runtime.misc.Interval;
 import org.antlr.v4.runtime.tree.ErrorNode;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.RuleNode;
@@ -79,7 +81,8 @@ class SchemaBuilder implements CopybookVisitor<CopybookNode> {
     private final List<String> errors = new ArrayList<>();
     private DataItem possibleEnum;
     private int rootLevel = -1;
-
+    private static final String SPACE = " ";
+    private static final String ZERO = "0";
     Schema getSchema() {
         return this.schema;
     }
@@ -164,17 +167,15 @@ class SchemaBuilder implements CopybookVisitor<CopybookNode> {
         if (pictureClause == null || pictureClause.pictureString() == null) {
             return new GroupItem(level, name, occurs, redefinedItemName, getParent(level));
         }
-
-
         PictureStringContext pictureType = pictureClause.pictureString();
+                validatePicture(pictureType);
         int readLength = Utils.getReadLength(pictureType);
         var valueClause = ctx.dataDescriptionEntryClauses().dataValueClause(0);
-        String defaultValue = getDataValue(valueClause, readLength);
         boolean isBinary = Utils.isBinary(ctx.dataDescriptionEntryClauses().dataUsageClause(0));
-        validatePicture(pictureType);
+        String defaultValue = this.getDataValue(valueClause, readLength);
         DataItem dataItem = new DataItem(level, name, Utils.getPictureString(pictureType), Utils.isNumeric(pictureType),
-                readLength, occurs, Utils.getFloatingPointLength(pictureType), redefinedItemName,
-                defaultValue, getParent(level), isBinary);
+                readLength, occurs, Utils.getFloatingPointLength(pictureType), redefinedItemName, defaultValue,
+                getParent(level), isBinary);
         this.possibleEnum = dataItem;
         return dataItem;
     }
@@ -186,6 +187,96 @@ class SchemaBuilder implements CopybookVisitor<CopybookNode> {
         }
         String errorMsg = "Unsupported picture string '" + pictureString + "' found in copybook schema";
         this.addError(pictureType.start.getLine(), pictureType.start.getCharPositionInLine(), errorMsg);
+    }
+
+    private String getDataValue(DataValueClauseContext ctx, int readLength) {
+        if (ctx == null) {
+            return null;
+        }
+        try {
+            DataValueIntervalContext dataValueInterval = ctx.dataValueInterval(0);
+            LiteralContext literal = dataValueInterval.dataValueIntervalFrom().literal();
+            FigurativeConstantContext figurativeConstantContext = literal.figurativeConstant();
+            if (figurativeConstantContext != null) {
+                return getDataValue(figurativeConstantContext, readLength);
+            }
+            TerminalNode nonNumericLiteral = literal.NONNUMERICLITERAL();
+            if (nonNumericLiteral != null) {
+                return getDataValue(literal, nonNumericLiteral);
+            }
+            NumericLiteralContext numericLiteral = literal.numericLiteral();
+            if (numericLiteral != null) {
+                return getDataValue(numericLiteral);
+            }
+        } catch (NullPointerException exception) {
+            addStatementNotSupportedError(ctx);
+            return null;
+        }
+        addStatementNotSupportedError(ctx);
+        return null;
+    }
+
+    private String getDataValue(FigurativeConstantContext ctx, int readLength) {
+        if (ctx == null) {
+            return null;
+        }
+        if (ctx.SPACE() != null) {
+            return SPACE;
+        }
+        if (ctx.ZERO() != null) {
+            return ZERO;
+        }
+        if (ctx.SPACES() != null) {
+            return SPACE.repeat(readLength);
+        }
+        if (ctx.ZEROES() != null || ctx.ZEROS() != null) {
+            return ZERO.repeat(readLength);
+        }
+        if (ctx.LOW_VALUE() != null) {
+            return ZERO;
+        }
+        if (ctx.LOW_VALUES() != null) {
+            return ZERO.repeat(readLength);
+        }
+        addStatementNotSupportedError(ctx);
+        return null;
+    }
+
+    private String getDataValue(LiteralContext literalContext, TerminalNode nonNumericLiteral) {
+        String defaultValue = nonNumericLiteral.getText();
+        if (Pattern.matches("^[xX].*$", defaultValue)) {
+            addError(literalContext.start.getLine(), literalContext.start.getCharPositionInLine(),
+                    "Hexadecimal value '" + defaultValue + "' is not supported as a default value.");
+            return null;
+        }
+        if (Pattern.matches("^[zZ].*$", defaultValue)) {
+            addError(literalContext.start.getLine(), literalContext.start.getCharPositionInLine(),
+                    "Null terminated value '" + defaultValue + "' is not supported as a default value.");
+            return null;
+        }
+        Matcher matcher = Pattern.compile("^['\"](?<stringValue>.*)['\"]$").matcher(defaultValue);
+        return matcher.find() ? matcher.group("stringValue") : defaultValue;
+    }
+
+    private String getDataValue(NumericLiteralContext numericLiteral) {
+        if (numericLiteral.NUMERICLITERAL() != null) {
+            String numericLiteralText = numericLiteral.NUMERICLITERAL().getText();
+            if (numericLiteralText.contains("e") || numericLiteralText.contains("E")) {
+                addError(numericLiteral.start.getLine(), numericLiteral.start.getCharPositionInLine(),
+                        "Scientific notation '" + numericLiteralText + "' is not supported as a default value.");
+            }
+        }
+        if (numericLiteral.ZERO() != null) {
+            return ZERO;
+        }
+        return numericLiteral.getText();
+    }
+
+    private void addStatementNotSupportedError(ParserRuleContext ctx) {
+        Interval statementInterval = new Interval(ctx.start.getStartIndex(), ctx.stop.getStopIndex());
+        String statement = ctx.start.getInputStream().getText(statementInterval);
+        addError(ctx.start.getLine(), ctx.start.getCharPositionInLine(),
+                "Copybook statement '" + statement + "' is not supported.");
     }
 
     @Override
@@ -213,8 +304,8 @@ class SchemaBuilder implements CopybookVisitor<CopybookNode> {
             var dataValueIntervalContext = valueClause.dataValueInterval(0);
             var literal = dataValueIntervalContext.dataValueIntervalFrom().literal();
             if (literal != null) {
-                // remove single quotes from value ('N' -> N)
-                Matcher matcher = Pattern.compile("'(?<stringValue>.*)'").matcher(literal.getText());
+                // Remove quotes from value if available (.ie 'N' -> N, "N" -> N)
+                Matcher matcher = Pattern.compile("^['\"](?<stringValue>.*)['\"]$").matcher(literal.getText());
                 String value =  matcher.find() ? matcher.group("stringValue") : literal.getText();
                 if (value.length() > this.possibleEnum.getReadLength()) {
                     String errorMsg = "Invalid enum value '" + value + "' found in copybook schema. "
@@ -310,72 +401,6 @@ class SchemaBuilder implements CopybookVisitor<CopybookNode> {
 
     @Override
     public CopybookNode visitDataUsageClause(DataUsageClauseContext ctx) {
-        return null;
-    }
-
-
-    private String getDataValue(DataValueClauseContext ctx, int readLength) {
-        if (ctx == null) {
-            return null;
-        }
-        if (ctx.VALUES() != null) {
-            // add error not supported
-            return null;
-        }
-        var interval = ctx.dataValueInterval(0);
-
-        if (interval.dataValueIntervalTo() != null) {
-            // add range not supported error
-            return null;
-        }
-        if (interval.dataValueIntervalFrom().cobolWord() != null) {
-            // return error saying cobolWord not supported
-            return null;
-        }
-        var literal = interval.dataValueIntervalFrom().literal();
-        var figurativeConstants = literal.figurativeConstant();
-        if (figurativeConstants != null) {
-            if (figurativeConstants.SPACE() != null) {
-                return " ";
-            }
-            if (literal.figurativeConstant().SPACES() != null) {
-                return " ".repeat(readLength);
-            }
-            if (literal.figurativeConstant().ZERO() != null) {
-                return "0";
-            }
-            if (literal.figurativeConstant().ZEROES() != null) {
-                return "0".repeat(readLength);
-            }
-            // others not supported
-            return null;
-        }
-        var nonNumericLiteral = literal.NONNUMERICLITERAL();
-        if (nonNumericLiteral != null) {
-            String defaultValue = nonNumericLiteral.getText();
-            if (Pattern.matches("^[xX].*", defaultValue)) {
-                // not supported   HEXNUMBER
-                return null;
-            }
-            if (Pattern.matches("^[zZ].*", defaultValue)) {
-                // not suported NULLTERMINATED
-                return null;
-            }
-
-            Matcher matcher = Pattern.compile("'(?<stringValue>.*)'").matcher(defaultValue);
-            return matcher.find() ? matcher.group("stringValue") : defaultValue;
-        }
-        var numericLiteral = literal.numericLiteral();
-        if (numericLiteral != null) {
-            if (numericLiteral.NUMERICLITERAL() != null) {
-                // NUMERICLITERAL not supported
-                return  null;
-            }
-            if (numericLiteral.ZERO() != null) {
-                return "0";
-            }
-            return numericLiteral.getText();
-        }
         return null;
     }
 

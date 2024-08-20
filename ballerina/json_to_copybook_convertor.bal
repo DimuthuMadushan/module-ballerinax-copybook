@@ -40,9 +40,7 @@ class JsonToCopybookConverter {
         if data.hasKey(typedef.getName()) {
             typedef.accept(self, data.get(typedef.getName()));
         } else {
-            // TODO: add test
-            string defaultNodeValue = self.getDefaultValue(typedef);
-            self.value.push(...defaultNodeValue.toBytes());
+            self.value.push(...self.getDefaultValue(typedef).toBytes());
         }
         _ = self.path.pop();
     }
@@ -141,14 +139,12 @@ class JsonToCopybookConverter {
                 self.value.push(...primitiveValue.toBytes());
             }
         } on fail error e {
-            if e is Error {
-                self.errors.push(e);
-            }
+            self.errors.push(e);
         }
         _ = self.path.pop();
     }
 
-    private isolated function handlePrimitive(PrimitiveType value, DataItem dataItem) returns string|error {
+    private isolated function handlePrimitive(PrimitiveType value, DataItem dataItem) returns string|Error {
         string primitiveValue;
         if value is string {
             primitiveValue = check self.handleStringValue(value, dataItem);
@@ -157,9 +153,7 @@ class JsonToCopybookConverter {
         } else {
             primitiveValue = check self.handleDecimalValue(<decimal>value, dataItem);
         }
-        if (dataItem.isEnum()) {
-            check self.validateEnumValue(primitiveValue, dataItem.getEumValues(), dataItem);
-        }
+        check self.validateEnumValue(primitiveValue, dataItem);
         return primitiveValue;
     }
 
@@ -174,7 +168,7 @@ class JsonToCopybookConverter {
         return value.padEnd(maxLength);
     }
 
-    private isolated function handleIntValue(int value, DataItem dataItem) returns string|error {
+    private isolated function handleIntValue(int value, DataItem dataItem) returns string|Error {
         if !dataItem.isNumeric() {
             return error Error(string `Numeric value ${value} found at ${self.getPath()}.`
                 + " Expecting a non-numeric value");
@@ -198,7 +192,10 @@ class JsonToCopybookConverter {
         }
         // handle S9(9)
         if dataItem.isBinary() {
-            byte[] encodedValue = check getEncodedBinaryValue(value, maxByteSize);
+            byte[]|error encodedValue = getEncodedBinaryValue(value, maxByteSize);
+            if encodedValue is error {
+                return error Error(encodedValue.message(), encodedValue.cause());
+            }
             self.value.push(...encodedValue);
             return "";
         }
@@ -209,12 +206,17 @@ class JsonToCopybookConverter {
     }
 
     private isolated function handlePrimitiveArray(PrimitiveArrayType array, DataItem dataItem)
-    returns string|error {
+    returns string|Error {
         string[] elements = [];
         PrimitiveType[] primitiveArray = array; // This is allowed by covariance
         foreach int i in 0 ..< primitiveArray.length() {
             self.path.push(string `[${i}]`);
-            elements.push(check self.handlePrimitive(primitiveArray[i], dataItem));
+            string|Error primitiveValue = self.handlePrimitive(primitiveArray[i], dataItem);
+            if primitiveValue is Error {
+                self.errors.push(primitiveValue);
+                continue;
+            }
+            elements.push(primitiveValue);
             _ = self.path.pop();
         }
         int maxElementCount = dataItem.getElementCount();
@@ -224,7 +226,7 @@ class JsonToCopybookConverter {
         return "".'join(...elements).padEnd(computeSize(dataItem));
     }
 
-    private isolated function handleDecimalValue(decimal input, DataItem dataItem) returns string|error {
+    private isolated function handleDecimalValue(decimal input, DataItem dataItem) returns string|Error {
         // TODO: skipped decimal with V, implment seperately for decimal containing V
         // TODO: handle special case Z for fraction
         if !dataItem.isDecimal() && !dataItem.isNumeric() {
@@ -264,7 +266,7 @@ class JsonToCopybookConverter {
     }
 
     private isolated function checkDecimalLength(string wholeNumber, string fraction, decimal input,
-            DataItem dataItem) returns error? {
+            DataItem dataItem) returns Error? {
         // A deducted of 1 made from readLength for decimal seperator "."
         int expectedWholeNumberLength = dataItem.getReadLength() - dataItem.getFloatingPointLength() - 1;
         // If PIC has + or -, then remove the space allocated for the sign
@@ -276,7 +278,12 @@ class JsonToCopybookConverter {
                 + string `${expectedWholeNumberLength} at ${self.getPath()}`);
         } else if fraction.length() > dataItem.getFloatingPointLength() {
             string exeedingFractionDigits = fraction.substring(dataItem.getFloatingPointLength());
-            if check int:fromString(exeedingFractionDigits) > 0 {
+            int|error exceedingValue = int:fromString(exeedingFractionDigits);
+            if exceedingValue is error {
+                return error Error(string `Unable to coerce the provided decimal fraction '${exeedingFractionDigits}': `
+                    + exceedingValue.message());
+            }
+            if exceedingValue > 0 {
                 return error Error(string `Value '${input}' exceeds the maximum number of fraction digits `
                     + string `${dataItem.getFloatingPointLength()} at ${self.getPath()}`);
             }
@@ -284,26 +291,30 @@ class JsonToCopybookConverter {
         return;
     }
 
-    private isolated function validateEnumValue(string value, string[] possibleEnumValues, DataItem dataItem) returns error? {
-        anydata providedVal;
-        anydata[] possibleValues;
-        if dataItem.isDecimal() {
-            providedVal = check decimal:fromString(re ` `.replaceAll(value, ""));
-            possibleValues = possibleEnumValues.'map(possibleValue => check decimal:fromString(possibleValue));
-        } else if dataItem.isNumeric() {
-            providedVal = check int:fromString(re ` `.replaceAll(value, ""));
-            possibleValues = possibleEnumValues.'map(possibleValue => check int:fromString(possibleValue));
-        } else {
-            providedVal = value;
-            possibleValues = possibleEnumValues;
-        }
-        if possibleValues.indexOf(providedVal) is int {
+    private isolated function validateEnumValue(string value, DataItem dataItem) returns Error? {
+        string[]? possibleEnumValues = dataItem.getPossibleEnumValues();
+        if possibleEnumValues is () {
             return;
         }
-        // Surround by single quote to display error message
-        string[] singleQuotedValues = possibleEnumValues.'map(posibleValue => string`'${posibleValue.toString()}'`);
+        anydata providedValue = value;
+        anydata[] possibleValues = possibleEnumValues;
+        do {
+            if dataItem.isDecimal() {
+                providedValue = check decimal:fromString(value);
+                possibleValues = check toDecimalArray(possibleEnumValues);
+            } else if dataItem.isNumeric() {
+                providedValue = check int:fromString(value);
+                possibleValues = check toIntArray(possibleEnumValues);
+            }
+        } on fail error e {
+            return error Error(string `Failed to validate enum value '${value}': ${e.message()}`, e.cause());
+        }
+        if possibleValues.indexOf(providedValue) is int {
+            return;
+        }
+        string[] formattedEnumValues = possibleEnumValues.'map(posibleValue => string `'${posibleValue.toString()}'`);
         return error Error(string `Value '${value}' is invalid for field '${dataItem.getName()}'. `
-            + string `Allowed values are: ${string:'join(", ", ...singleQuotedValues)}.`);
+            + string `Allowed values are: ${string:'join(", ", ...formattedEnumValues)}.`);
     }
 
     private isolated function getPath() returns string {

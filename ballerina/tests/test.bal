@@ -27,9 +27,9 @@ isolated function testParseSchemaFile() returns error? {
 @test:Config {
     dataProvider: testConverterDataProvider
 }
-isolated function testConverter(string copybookFilePath, string inputFilePath) returns error? {
-    Converter converter = check new (copybookFilePath);
-    string[] input = check io:fileReadLines(inputFilePath);
+isolated function testConverter(string copybookName) returns error? {
+    Converter converter = check new (getCopybookPath(copybookName));
+    string[] input = check io:fileReadLines(getAsciiFilePath(copybookName));
     foreach string line in input {
         map<json> jsonData = check (check converter.toJson(line)).get(DATA).ensureType();
         string output = check converter.toCopybook(jsonData);
@@ -37,10 +37,10 @@ isolated function testConverter(string copybookFilePath, string inputFilePath) r
     }
 }
 
-isolated function testConverterDataProvider() returns [string, string][] {
-    [string, string][] filePaths = [];
+isolated function testConverterDataProvider() returns map<[string]> {
+    map<[string]> filePaths = {};
     foreach int i in 1 ... 5 {
-        filePaths.push([getCopybookPath(string `copybook-${i}`), getAsciiFilePath(string `copybook-${i}`)]);
+        filePaths[i.toString()] = [string `copybook-${i}`];
     }
     return filePaths;
 }
@@ -148,26 +148,59 @@ isolated function testDecimalWithoutFraction() returns error? {
     test:assertEquals(copybook, expectedAscii);
 }
 
-@test:Config
-isolated function testEnumValidation() returns error? {
-    Converter converter = check new (getCopybookPath("copybook-11"));
-    json jsonInput = check io:fileReadJson(getCopybookJsonPath("valid-copybook-11"));
+@test:Config {
+    dataProvider: testEnumValidationDataProvider
+}
+isolated function testEnumValidation(string copybookName) returns error? {
+    Converter converter = check new (getCopybookPath(copybookName));
+    json jsonInput = check io:fileReadJson(getCopybookJsonPath(string `valid-${copybookName}`));
     string validCopybook = check converter.toCopybook(check jsonInput.cloneWithType());
-    test:assertEquals(validCopybook, check io:fileReadString(getAsciiFilePath("valid-copybook-11")));
+    test:assertEquals(validCopybook, check io:fileReadString(getAsciiFilePath(copybookName)));
 
-    jsonInput = check io:fileReadJson(getCopybookJsonPath("invalid-copybook-11"));
+    jsonInput = check io:fileReadJson(getCopybookJsonPath(string `invalid-${copybookName}`));
     Error|string invalidCopybook = converter.toCopybook(check jsonInput.cloneWithType());
     if invalidCopybook !is Error {
         test:assertFail("Expected a 'copybook:Error' but found a 'string'");
     }
-    test:assertEquals(invalidCopybook.detail(), check getErrorDetail("copybook-11"));
+    test:assertEquals(invalidCopybook.detail(), check getErrorDetail(copybookName));
+}
+
+isolated function testEnumValidationDataProvider() returns map<[string]> {
+    map<[string]> copybookNames = {};
+    foreach int i in 11 ... 13 {
+        copybookNames[i.toString()] = [string `copybook-${i}`];
+    }
+    return copybookNames;
 }
 
 @test:Config
 isolated function testInvalidEnumSchema() returns error? {
-    Converter|Error converter = new (getCopybookPath("copybook-12"));
+    Converter|Error converter = new (getCopybookPath("copybook-14"));
     if converter !is Error {
-        test:assertFail("Expected a 'copybook:Error' but found a 'string'");
+        test:assertFail("Expected a 'copybook:Error'");
     }
-    test:assertEquals(converter.detail(), check getErrorDetail("copybook-12"));
+    test:assertEquals(converter.detail(), check getErrorDetail("copybook-14"));
+}
+
+@test:Config
+isolated function testIntegerPicDefaulValues() returns error? {
+    Converter converter = check new (getCopybookPath("copybook-15"));
+    string validCopybook = check converter.toCopybook({});
+    test:assertEquals(validCopybook, check io:fileReadString(getAsciiFilePath("copybook-15")));
+}
+
+@test:Config
+isolated function testValueClauseWithDefaulValues() returns error? {
+    Converter converter = check new (getCopybookPath("copybook-16"));
+    string validCopybook = check converter.toCopybook({});
+    test:assertEquals(validCopybook, check io:fileReadString(getAsciiFilePath("copybook-16")));
+}
+
+@test:Config
+isolated function testUnsupportedValueClauses() returns error? {
+    Converter|Error converter = new (getCopybookPath("copybook-17"));
+    if converter !is Error {
+        test:assertFail("Expected a 'copybook:Error'");
+    }
+    test:assertEquals(converter.detail(), check getErrorDetail("copybook-17"));
 }

@@ -63,7 +63,7 @@ isolated distinct class DataItem {
         'class: "io.ballerina.lib.copybook.runtime.converter.Utils"
     } external;
 
-    isolated function getEumValues() returns string[] = @java:Method {
+    isolated function getPossibleEnumValues() returns string[]? = @java:Method {
         'class: "io.ballerina.lib.copybook.runtime.converter.Utils"
     } external;
 

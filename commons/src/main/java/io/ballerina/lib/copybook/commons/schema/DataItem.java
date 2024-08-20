@@ -31,8 +31,8 @@ public class DataItem implements CopybookNode {
     private final boolean isSinged;
     private final int floatingPointLength;
     private final String redefinedItemName;
-    private final ArrayList<String> possibleEnumValues = new ArrayList<>();
     private final String defaultValue;
+    private final ArrayList<String> possibleEnumValues = new ArrayList<>();
     private final boolean isBinary;
 
     public DataItem(int level, String name, String picture, boolean isNumeric, int readLength, int occurs,
@@ -87,12 +87,12 @@ public class DataItem implements CopybookNode {
         return !this.possibleEnumValues.isEmpty();
     }
 
-    public List<String> getEnumValues() {
+    public List<String> getPossibleEnumValues() {
         return this.possibleEnumValues;
     }
 
-    public void addEnumValues(String enumValue) {
-        this.possibleEnumValues.add(enumValue);
+    public List<String> getEnumValues() {
+        return this.possibleEnumValues;
     }
 
     public int getFloatingPointLength() {
@@ -105,6 +105,10 @@ public class DataItem implements CopybookNode {
 
     public String getDefaultValue() {
         return defaultValue;
+    }
+
+    void addEnumValues(String enumValue) {
+        this.possibleEnumValues.add(enumValue);
     }
 
     public boolean isBinary() {
@@ -134,7 +138,7 @@ public class DataItem implements CopybookNode {
             sb.append(", \"isEnum\": true");
             sb.append(",  \"enumValues\":").append("[");
             int i = 0;
-            for (String value : getEnumValues()) {
+            for (String value : this.possibleEnumValues) {
                 sb.append("\"");
                 sb.append(value);
                 sb.append("\"");

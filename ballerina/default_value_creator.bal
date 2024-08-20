@@ -16,7 +16,7 @@
 
 class DefaultValueCreator {
     *Visitor;
-    private string[] defaultValues = [];
+    private string[] defaultValueFragments = [];
 
     isolated function visitSchema(Schema schema, anydata data = ()) {
     }
@@ -25,31 +25,27 @@ class DefaultValueCreator {
         if groupItem.getRedefinedItemName() is string {
             return;
         }
-        string[] defaultValues = self.defaultValues;
-        self.defaultValues = [];
+        string[] defaultValues = self.defaultValueFragments;
+        self.defaultValueFragments = [];
         foreach Node node in groupItem.getChildren() {
             node.accept(self);
         }
-        string groupItemDefaultValue = string:'join("", ...self.defaultValues);
-        int elementCount = groupItem.getElementCount();
-        defaultValues.push(self.generateRepeatedString(groupItemDefaultValue, elementCount));
-        self.defaultValues = defaultValues;
+        string groupItemDefaultValue = string:'join("", ...self.defaultValueFragments);
+        defaultValues.push(self.generateRepeatedString(groupItemDefaultValue, groupItem.getElementCount()));
+        self.defaultValueFragments = defaultValues;
     }
 
     isolated function visitDataItem(DataItem dataItem, anydata data = ()) {
         if dataItem.getRedefinedItemName() is string {
             return;
         }
-        // TODO: verify the dataItem.getDefaultValue() impl for numeric and decimal value
-        string defaultValues = dataItem.getDefaulValue() ?: "";
-        string dataItemDefaultValue;
-        if dataItem.isNumeric() && !dataItem.isDecimal() {
-            dataItemDefaultValue = defaultValues.padZero(dataItem.getReadLength());
+        string dataItemDefaultValue = dataItem.getDefaulValue() ?: "";
+        if (dataItem.isNumeric() && !dataItem.isDecimal()) ||  (dataItem.isDecimal() && dataItemDefaultValue != "") {
+            dataItemDefaultValue = dataItemDefaultValue.padZero(dataItem.getReadLength());
         } else {
-            dataItemDefaultValue = defaultValues.padEnd(dataItem.getReadLength());
+            dataItemDefaultValue = dataItemDefaultValue.padEnd(dataItem.getReadLength());
         }
-        int elementCount = dataItem.getElementCount();
-        self.defaultValues.push(self.generateRepeatedString(dataItemDefaultValue, elementCount));
+        self.defaultValueFragments.push(self.generateRepeatedString(dataItemDefaultValue, dataItem.getElementCount()));
     }
 
     private isolated function generateRepeatedString(string value, int count) returns string {
@@ -64,6 +60,6 @@ class DefaultValueCreator {
     }
 
     isolated function getDefaultValue() returns string {
-        return string:'join("", ...self.defaultValues);
+        return string:'join("", ...self.defaultValueFragments);
     }
 }

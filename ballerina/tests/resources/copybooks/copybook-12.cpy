@@ -1,3 +1,3 @@
-01 REQUIRED        PIC  X.
-    88 YES                        VALUE 'YES'.
-    88 NO                         VALUE 'NO'.
+01 REQUIRED        PIC  9.
+    88 YES                        VALUE 1.
+    88 NO                         VALUE 0.
